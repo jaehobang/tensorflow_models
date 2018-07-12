@@ -259,46 +259,52 @@ class ObjectDetectionEvaluator(DetectionEvaluator):
         detected_masks=detection_masks)
 
   def evaluate(self):
-    """Compute evaluation result.
+      """Compute evaluation result.
 
-    Returns:
-      A dictionary of metrics with the following fields -
+      Returns:
+        A dictionary of metrics with the following fields -
 
-      1. summary_metrics:
-        'Precision/mAP@<matching_iou_threshold>IOU': mean average precision at
-        the specified IOU threshold.
+        1. summary_metrics:
+          'Precision/mAP@<matching_iou_threshold>IOU': mean average precision at
+          the specified IOU threshold.
 
-      2. per_category_ap: category specific results with keys of the form
-        'PerformanceByCategory/mAP@<matching_iou_threshold>IOU/category'.
-    """
-    (per_class_ap, mean_ap, _, _, per_class_corloc, mean_corloc) = (
-        self._evaluation.evaluate())
-    pascal_metrics = {
-        self._metric_prefix +
-        'Precision/mAP@{}IOU'.format(self._matching_iou_threshold):
-            mean_ap
-    }
-    if self._evaluate_corlocs:
-      pascal_metrics[self._metric_prefix + 'Precision/meanCorLoc@{}IOU'.format(
-          self._matching_iou_threshold)] = mean_corloc
-    category_index = label_map_util.create_category_index(self._categories)
-    for idx in range(per_class_ap.size):
-      if idx + self._label_id_offset in category_index:
-        display_name = (
-            self._metric_prefix + 'PerformanceByCategory/AP@{}IOU/{}'.format(
-                self._matching_iou_threshold,
-                category_index[idx + self._label_id_offset]['name']))
-        pascal_metrics[display_name] = per_class_ap[idx]
+        2. per_category_ap: category specific results with keys of the form
+          'PerformanceByCategory/mAP@<matching_iou_threshold>IOU/category'.
+      """
+      (per_class_ap, mean_ap, precisions_per_class, recalls_per_class, per_class_corloc, mean_corloc) = (
+          self._evaluation.evaluate())
+      pascal_metrics = {
+          self._metric_prefix +
+          'Precision/mAP@{}IOU'.format(self._matching_iou_threshold):
+              mean_ap
+      }
+      pr_value = {}
+      if self._evaluate_corlocs:
+          pascal_metrics[self._metric_prefix + 'Precision/meanCorLoc@{}IOU'.format(
+              self._matching_iou_threshold)] = mean_corloc
+      category_index = label_map_util.create_category_index(self._categories)
+      for idx in range(per_class_ap.size):
+          if idx + self._label_id_offset in category_index:
+              display_name = (
+                      self._metric_prefix + 'PerformanceByCategory/AP@{}IOU/{}'.format(
+                  self._matching_iou_threshold,
+                  category_index[idx + self._label_id_offset]['name']))
+              pascal_metrics[display_name] = per_class_ap[idx]
 
-        # Optionally add CorLoc metrics.classes
-        if self._evaluate_corlocs:
-          display_name = (
-              self._metric_prefix + 'PerformanceByCategory/CorLoc@{}IOU/{}'
-              .format(self._matching_iou_threshold,
-                      category_index[idx + self._label_id_offset]['name']))
-          pascal_metrics[display_name] = per_class_corloc[idx]
+              # PR curve
+              display_name = (
+                  'PR_curve@{}'.format(category_index[idx + self._label_id_offset]['name']))
+              pr_value[display_name] = {'precisions': precisions_per_class[idx], 'recalls': recalls_per_class[idx]}
 
-    return pascal_metrics
+              # Optionally add CorLoc metrics.classes
+              if self._evaluate_corlocs:
+                  display_name = (
+                          self._metric_prefix + 'PerformanceByCategory/CorLoc@{}IOU/{}'
+                          .format(self._matching_iou_threshold,
+                                  category_index[idx + self._label_id_offset]['name']))
+                  pascal_metrics[display_name] = per_class_corloc[idx]
+
+      return pascal_metrics, pr_value
 
   def clear(self):
     """Clears the state to prepare for a fresh evaluation."""
@@ -772,8 +778,7 @@ class ObjectDetectionEvaluation(object):
       if scores[i].shape[0] > 0:
         self.scores_per_class[i].append(scores[i])
         self.tp_fp_labels_per_class[i].append(tp_fp_labels[i])
-    (self.num_images_correctly_detected_per_class
-    ) += is_class_correctly_detected_in_image
+    self.num_images_correctly_detected_per_class += is_class_correctly_detected_in_image
 
   def _update_ground_truth_statistics(self, groundtruth_class_labels,
                                       groundtruth_is_difficult_list,
@@ -839,9 +844,9 @@ class ObjectDetectionEvaluation(object):
       if self.use_weighted_mean_ap:
         all_scores = np.append(all_scores, scores)
         all_tp_fp_labels = np.append(all_tp_fp_labels, tp_fp_labels)
-      print 'Scores and tpfp per class label: {}'.format(class_index)
-      print tp_fp_labels
-      print scores
+      print('Scores and tpfp per class label: {}'.format(class_index))
+      print(tp_fp_labels)
+      print(scores)
       precision, recall = metrics.compute_precision_recall(
           scores, tp_fp_labels, self.num_gt_instances_per_class[class_index])
       self.precisions_per_class.append(precision)
@@ -864,3 +869,5 @@ class ObjectDetectionEvaluation(object):
     return ObjectDetectionEvalMetrics(
         self.average_precision_per_class, mean_ap, self.precisions_per_class,
         self.recalls_per_class, self.corloc_per_class, mean_corloc)
+
+

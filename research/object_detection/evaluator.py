@@ -25,6 +25,7 @@ from object_detection import eval_util
 from object_detection.core import prefetcher
 from object_detection.core import standard_fields as fields
 from object_detection.metrics import coco_evaluation
+from object_detection.metrics import fddb_evaluation
 from object_detection.utils import object_detection_evaluation
 
 # A dictionary of metric names to classes that implement the metric. The classes
@@ -47,12 +48,14 @@ EVAL_METRICS_CLASS_DICT = {
         coco_evaluation.CocoMaskEvaluator,
     'oid_challenge_object_detection_metrics':
         object_detection_evaluation.OpenImagesDetectionChallengeEvaluator,
+    'fddb_detection_metrics':
+        fddb_evaluation.FddbDetectionEvaluator,
 }
 
 EVAL_DEFAULT_METRIC = 'pascal_voc_detection_metrics'
 
 
-def _extract_predictions_and_losses(model,
+def  _extract_predictions_and_losses(model,
                                     create_input_dict_fn,
                                     ignore_groundtruth=False):
   """Constructs tensorflow detection graph and returns output tensors.
@@ -202,7 +205,7 @@ def evaluate(create_input_dict_fn, create_model_fn, eval_config, categories,
         be updated to keep track of number of successful and failed runs,
         respectively.  If these fields are not updated, then the success/skipped
         counter values shown at the end of evaluation will be incorrect.
-      losses_dict: Optional dictonary of scalar loss tensors.
+      losses_dict: Optional dictionary of scalar loss tensors.
 
     Returns:
       result_dict: a dictionary of numpy arrays
