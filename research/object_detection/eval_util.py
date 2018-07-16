@@ -347,7 +347,7 @@ def _run_checkpoint_once(tensor_dict,
       logging.info('# skipped: %d', counters['skipped'])
       all_evaluator_metrics = {}
       for evaluator in evaluators:
-        metrics, pr_value = evaluator.evaluate()
+        (metrics, pr_value) = evaluator.evaluate()
         evaluator.clear()
         if any(key in all_evaluator_metrics for key in metrics):
           raise ValueError('Metric names between evaluators must not collide.')

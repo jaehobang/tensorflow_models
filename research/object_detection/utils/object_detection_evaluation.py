@@ -271,6 +271,8 @@ class ObjectDetectionEvaluator(DetectionEvaluator):
         2. per_category_ap: category specific results with keys of the form
           'PerformanceByCategory/mAP@<matching_iou_threshold>IOU/category'.
       """
+      #TODO: Need to look at what the below function does because values in parenthesis are just nan
+      #TODO: Need to trace step by step.....
       (per_class_ap, mean_ap, precisions_per_class, recalls_per_class, per_class_corloc, mean_corloc) = (
           self._evaluation.evaluate())
       pascal_metrics = {
@@ -294,6 +296,8 @@ class ObjectDetectionEvaluator(DetectionEvaluator):
               # PR curve
               display_name = (
                   'PR_curve@{}'.format(category_index[idx + self._label_id_offset]['name']))
+              print(idx)
+
               pr_value[display_name] = {'precisions': precisions_per_class[idx], 'recalls': recalls_per_class[idx]}
 
               # Optionally add CorLoc metrics.classes
