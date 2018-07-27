@@ -1,0 +1,36 @@
+syntax = "proto2";
+
+package object_detection.protos;
+
+// Configuration proto for ArgMaxMatcher. See
+// matchers/argmax_matcher_sssfd.py for details.
+message ArgMaxMatcherSssfd {
+  // Threshold for positive matches.
+  optional float matched_threshold = 1 [default = 0.5];
+
+  // Threshold for negative matches.
+  optional float unmatched_threshold = 2 [default = 0.5];
+
+  // Whether to construct ArgMaxMatcher without thresholds.
+  optional bool ignore_thresholds = 3 [default = false];
+
+  // If True then negative matches are the ones below the unmatched_threshold,
+  // whereas ignored matches are in between the matched and umatched
+  // threshold. If False, then negative matches are in between the matched
+  // and unmatched threshold, and everything lower than unmatched is ignored.
+  optional bool negatives_lower_than_unmatched = 4 [default = true];
+
+  // Whether to ensure each row is matched to at least one column.
+  optional bool force_match_for_each_row = 5 [default = false];
+
+  // Force constructed match objects to use matrix multiplication based gather
+  // instead of standard tf.gather
+  optional bool use_matmul_gather = 6 [default = false];
+
+  // Incorporate Sssfd logic for small faces -> if associated anchor number is less than 6, decrease the threshold to 0.1,
+  // sort them by matching threshold and choose top 6
+  // refers to the number of anchor to switch to the minimum_threshold
+  optional float minimum_anchor_num = 7 [default = 6];
+
+  optional float minimum_threshold = 8 [default = 0.1];
+}

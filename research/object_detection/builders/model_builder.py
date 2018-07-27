@@ -38,6 +38,7 @@ from object_detection.models.ssd_inception_v2_feature_extractor import SSDIncept
 from object_detection.models.ssd_inception_v3_feature_extractor import SSDInceptionV3FeatureExtractor
 from object_detection.models.ssd_mobilenet_v1_feature_extractor import SSDMobileNetV1FeatureExtractor
 from object_detection.models.ssd_mobilenet_v2_feature_extractor import SSDMobileNetV2FeatureExtractor
+from object_detection.models.sssfd_mobilenet_v2_feature_extractor import SSSFDMobileNetV2FeatureExtractor
 from object_detection.protos import model_pb2
 
 # A map of names to SSD feature extractors.
@@ -70,6 +71,10 @@ FASTER_RCNN_FEATURE_EXTRACTOR_CLASS_MAP = {
     frcnn_resnet_v1.FasterRCNNResnet152FeatureExtractor,
 }
 
+SSSFD_FEATURE_EXTRACTOR_CLASS_MAP = {
+    'sssfd_mobilenet_v2': SSSFDMobileNetV2FeatureExtractor,
+}
+
 
 def build(model_config, is_training, add_summaries=True,
           add_background_class=True):
@@ -99,7 +104,11 @@ def build(model_config, is_training, add_summaries=True,
   if meta_architecture == 'faster_rcnn':
     return _build_faster_rcnn_model(model_config.faster_rcnn, is_training,
                                     add_summaries)
+  if meta_architecture == 'sssfd':
+      return _build_sssfd_model(model_config.sssfd, is_training, add_summaries, add_background_class)
   raise ValueError('Unknown meta architecture: {}'.format(meta_architecture))
+
+
 
 
 def _build_ssd_feature_extractor(feature_extractor_config, is_training,
@@ -136,6 +145,97 @@ def _build_ssd_feature_extractor(feature_extractor_config, is_training,
       is_training, depth_multiplier, min_depth, pad_to_multiple,
       conv_hyperparams, reuse_weights, use_explicit_padding, use_depthwise,
       override_base_feature_extractor_hyperparams)
+
+def _build_sssfd_feature_extractor(feature_extractor_config, is_training,
+                                 reuse_weights=None):
+  """Builds a ssd_meta_arch.SSDFeatureExtractor based on config.
+
+  Args:
+    feature_extractor_config: A SSDFeatureExtractor proto config from ssd.proto.
+    is_training: True if this feature extractor is being built for training.
+    reuse_weights: if the feature extractor should reuse weights.
+
+  Returns:
+    ssd_meta_arch.SSDFeatureExtractor based on config.
+
+  Raises:
+    ValueError: On invalid feature extractor type.
+  """
+  feature_type = feature_extractor_config.type
+  depth_multiplier = feature_extractor_config.depth_multiplier
+  min_depth = feature_extractor_config.min_depth
+  pad_to_multiple = feature_extractor_config.pad_to_multiple
+  use_explicit_padding = feature_extractor_config.use_explicit_padding
+  use_depthwise = feature_extractor_config.use_depthwise
+  conv_hyperparams = hyperparams_builder.build(
+      feature_extractor_config.conv_hyperparams, is_training)
+  override_base_feature_extractor_hyperparams = (
+      feature_extractor_config.override_base_feature_extractor_hyperparams)
+
+  if feature_type not in SSSFD_FEATURE_EXTRACTOR_CLASS_MAP:
+    raise ValueError('Unknown ssd feature_extractor: {}'.format(feature_type))
+
+  feature_extractor_class = SSSFD_FEATURE_EXTRACTOR_CLASS_MAP[feature_type]
+  return feature_extractor_class(
+      is_training, depth_multiplier, min_depth, pad_to_multiple,
+      conv_hyperparams, reuse_weights, use_explicit_padding, use_depthwise,
+      override_base_feature_extractor_hyperparams)
+
+
+def _build_sssfd_model(sssfd_config, is_training, add_summaries, add_background_class=True):
+    num_classes = sssfd_config.num_classes
+
+    # Feature extractor
+    feature_extractor = _build_sssfd_feature_extractor(
+        feature_extractor_config=sssfd_config.feature_extractor,
+        is_training=is_training)
+
+    box_coder = box_coder_builder.build(sssfd_config.box_coder)
+    matcher = matcher_builder.build(sssfd_config.matcher)
+    region_similarity_calculator = sim_calc.build(
+        sssfd_config.similarity_calculator)
+    encode_background_as_zeros = sssfd_config.encode_background_as_zeros
+    negative_class_weight = sssfd_config.negative_class_weight
+    sssfd_box_predictor = box_predictor_builder.build(hyperparams_builder.build,
+                                                    sssfd_config.box_predictor,
+                                                    is_training, num_classes)
+    anchor_generator = anchor_generator_builder.build(
+        sssfd_config.anchor_generator)
+    image_resizer_fn = image_resizer_builder.build(sssfd_config.image_resizer)
+    non_max_suppression_fn, score_conversion_fn = post_processing_builder.build(
+        sssfd_config.post_processing)
+    (classification_loss, localization_loss, classification_weight,
+     localization_weight, hard_example_miner,
+     random_example_sampler) = losses_builder.build(sssfd_config.loss)
+    normalize_loss_by_num_matches = sssfd_config.normalize_loss_by_num_matches
+    normalize_loc_loss_by_codesize = sssfd_config.normalize_loc_loss_by_codesize
+
+    return ssd_meta_arch.SSDMetaArch(
+        is_training,
+        anchor_generator,
+        sssfd_box_predictor,
+        box_coder,
+        feature_extractor,
+        matcher,
+        region_similarity_calculator,
+        encode_background_as_zeros,
+        negative_class_weight,
+        image_resizer_fn,
+        non_max_suppression_fn,
+        score_conversion_fn,
+        classification_loss,
+        localization_loss,
+        classification_weight,
+        localization_weight,
+        normalize_loss_by_num_matches,
+        hard_example_miner,
+        add_summaries=add_summaries,
+        normalize_loc_loss_by_codesize=normalize_loc_loss_by_codesize,
+        freeze_batchnorm=sssfd_config.freeze_batchnorm,
+        inplace_batchnorm_update=sssfd_config.inplace_batchnorm_update,
+        add_background_class=add_background_class,
+        random_example_sampler=random_example_sampler)
+
 
 
 def _build_ssd_model(ssd_config, is_training, add_summaries,
