@@ -90,7 +90,7 @@ class ArgMaxMatcherSssfd(matcher.Matcher):
       raise ValueError('Need to also define matched_threshold when'
                        'unmatched_threshold is defined')
     self._matched_threshold = matched_threshold
-    self._minimum_anchor_num = minimum_anchor_num
+    self._minimum_anchor_num = int(minimum_anchor_num)
     self._minimum_threshold = minimum_threshold
     if unmatched_threshold is None:
       self._unmatched_threshold = matched_threshold
@@ -151,6 +151,8 @@ class ArgMaxMatcherSssfd(matcher.Matcher):
             tf.greater_equal(matched_vals, self._unmatched_threshold),
             tf.greater(self._matched_threshold, matched_vals))
 
+
+
         if self._negatives_lower_than_unmatched:
           matches = self._set_values_using_indicator(matches,
                                                      below_unmatched_threshold,
@@ -178,10 +180,53 @@ class ArgMaxMatcherSssfd(matcher.Matcher):
         force_match_column_mask = tf.cast(
             tf.reduce_max(force_match_column_indicators, 0), tf.bool)
         final_matches = tf.where(force_match_column_mask,
-                                 force_match_row_ids, matches)
+                                 force_match_row_ids, matches) # returns elements of force_match_row_ids if column_mask is True, vice versa
+
         return final_matches
       else:
-        return matches
+        num_anchors = tf.reduce_sum(tf.cast(tf.greater(matches, 0), tf.int32))
+        return tf.cond(num_anchors < self._minimum_anchor_num, true_fn=_match_when_not_enough_anchors, false_fn= lambda : matches)
+
+
+    #TOOD: Debug this function - make sure everything works here -- I think it works???
+    def _match_when_not_enough_anchors():
+        """Performs anchor matching strategy outlined in https://arxiv.org/pdf/1708.05237.pdf when number of anchors that exceed
+        the minimum threshold does not exceed N. N can be set in config file by setting the minimum_anchor_num argument
+
+        Returns:
+          matches:  int32 tensor indicating the row each column matches to.
+        """
+        # Matches for each column
+        new_matches = tf.argmax(similarity_matrix, 0, output_type=tf.int32)
+
+        # Get logical indices of ignored and unmatched columns as tf.int64
+        new_matched_vals = tf.reduce_max(similarity_matrix, 0)
+        below_min_threshold = tf.greater(self._minimum_threshold, new_matched_vals)
+
+        if self._negatives_lower_than_unmatched:
+          new_matches = self._set_values_using_indicator(new_matches,
+                                                     below_min_threshold,
+                                                     -1)
+
+        #TODO: sort them, pick out top self._minimum_anchor_num
+
+        matches_sorted_values, matches_sorted_indices = tf.nn.top_k(new_matches, self._minimum_anchor_num)
+        similarity_matrix_shape = shape_utils.combined_static_and_dynamic_shape(
+            similarity_matrix)
+
+        min_column_indicators = tf.one_hot(
+            matches_sorted_indices, depth=similarity_matrix_shape[1])
+        min_column_mask = tf.cast(
+            tf.reduce_max(min_column_indicators, 0), tf.bool)
+
+        min_row_ids = tf.argmax(min_column_indicators, 0,
+                                        output_type=tf.int32)
+
+        new_final_matches = tf.where(min_column_mask,
+                                 min_row_ids, new_matches)
+
+        return new_final_matches
+
 
     if similarity_matrix.shape.is_fully_defined():
       if similarity_matrix.shape[0].value == 0:
@@ -192,6 +237,10 @@ class ArgMaxMatcherSssfd(matcher.Matcher):
       return tf.cond(
           tf.greater(tf.shape(similarity_matrix)[0], 0),
           _match_when_rows_are_non_empty, _match_when_rows_are_empty)
+
+
+
+
 
   def _set_values_using_indicator(self, x, indicator, val):
     """Set the indicated fields of x to val.

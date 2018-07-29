@@ -162,6 +162,8 @@ class ArgMaxMatcher(matcher.Matcher):
                                                      between_thresholds,
                                                      -1)
 
+      #It seems to return a matrix / vector that specifies the location of all matches
+
       if self._force_match_for_each_row:
         similarity_matrix_shape = shape_utils.combined_static_and_dynamic_shape(
             similarity_matrix)
@@ -175,6 +177,9 @@ class ArgMaxMatcher(matcher.Matcher):
             tf.reduce_max(force_match_column_indicators, 0), tf.bool)
         final_matches = tf.where(force_match_column_mask,
                                  force_match_row_ids, matches)
+
+        #Need to follow up on what final_matches end up being and where it goes -> this will lead to where we 'pick out' the best ones
+
         return final_matches
       else:
         return matches
