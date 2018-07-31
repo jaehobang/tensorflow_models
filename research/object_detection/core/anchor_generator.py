@@ -95,6 +95,10 @@ class AnchorGenerator(object):
       ValueError: if the number of feature map shapes does not match the length
         of NumAnchorsPerLocation.
     """
+
+    print(self.check_num_anchors)
+    print(len(feature_map_shape_list))
+    print(len(self.num_anchors_per_location()))
     if self.check_num_anchors and (
         len(feature_map_shape_list) != len(self.num_anchors_per_location())):
       raise ValueError('Number of feature maps is expected to equal the length '

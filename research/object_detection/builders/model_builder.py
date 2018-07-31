@@ -39,6 +39,8 @@ from object_detection.models.ssd_inception_v3_feature_extractor import SSDIncept
 from object_detection.models.ssd_mobilenet_v1_feature_extractor import SSDMobileNetV1FeatureExtractor
 from object_detection.models.ssd_mobilenet_v2_feature_extractor import SSDMobileNetV2FeatureExtractor
 from object_detection.models.sssfd_mobilenet_v2_feature_extractor import SSSFDMobileNetV2FeatureExtractor
+from object_detection.models.sssfd_resnet_v1_fpn_feature_extractor import SSSFDResnet101V1FpnFeatureExtractor
+from object_detection.models.sssfd_resnet_v1_fpn_feature_extractor import SSSFDResnet50V1FpnFeatureExtractor
 from object_detection.protos import model_pb2
 
 # A map of names to SSD feature extractors.
@@ -73,6 +75,8 @@ FASTER_RCNN_FEATURE_EXTRACTOR_CLASS_MAP = {
 
 SSSFD_FEATURE_EXTRACTOR_CLASS_MAP = {
     'sssfd_mobilenet_v2': SSSFDMobileNetV2FeatureExtractor,
+    'sssfd_resnet_v1_50': SSSFDResnet50V1FpnFeatureExtractor,
+    'sssfd_resent_v1_101': SSSFDResnet101V1FpnFeatureExtractor,
 }
 
 

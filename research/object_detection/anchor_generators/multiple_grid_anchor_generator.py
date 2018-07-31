@@ -334,3 +334,5 @@ def create_ssd_anchors(num_layers=6,
 
   return MultipleGridAnchorGenerator(box_specs_list, base_anchor_size,
                                      anchor_strides, anchor_offsets)
+
+

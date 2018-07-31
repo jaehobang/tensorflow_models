@@ -22,6 +22,8 @@ from object_detection.models import feature_map_generators
 from object_detection.utils import context_manager
 from object_detection.utils import ops
 from object_detection.utils import shape_utils
+from nets import resnet_v2
+from nets import resnet_utils
 from nets.mobilenet import mobilenet
 from nets.mobilenet import mobilenet_v2
 
@@ -29,7 +31,7 @@ slim = tf.contrib.slim
 
 
 class SSSFDMobileNetV2FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
-  """SSD Feature Extractor using MobilenetV2 features."""
+  """SSSFD Feature Extractor using MobilenetV2 features."""
 
   def __init__(self,
                is_training,
@@ -97,7 +99,7 @@ class SSSFDMobileNetV2FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
     """
     preprocessed_inputs = shape_utils.check_min_image_dim(
         33, preprocessed_inputs)
-
+    '''
     feature_map_layout = {
         'from_layer': ['layer_15/expansion_output', 'layer_19', '', '', '', ''],
         'layer_depth': [-1, -1, 512, 256, 256, 128],
@@ -105,9 +107,18 @@ class SSSFDMobileNetV2FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
         'use_explicit_padding': self._use_explicit_padding,
     }
 
+    '''
+
+    feature_map_layout = {
+        'from_layer': ['layer_5/expansion_output', 'layer_6/expansion_output', 'layer_7/expansion_output',
+                       'layer_10/expansion_output', 'layer_15/expansion_output', 'layer_19'],
+        'layer_depth': [-1, -1, -1, -1, -1, -1],
+        'use_depthwise': self._use_depthwise,
+        'use_explicit_padding': self._use_explicit_padding,
+    }
+
     with tf.variable_scope('MobilenetV2', reuse=self._reuse_weights) as scope:
-      with slim.arg_scope(
-          mobilenet_v2.training_scope(is_training=None, bn_decay=0.9997)), \
+      with slim.arg_scope(resnet_utils.resnet_arg_scope()), \
           slim.arg_scope(
               [mobilenet.depth_multiplier], min_depth=self._min_depth):
         with (slim.arg_scope(self._conv_hyperparams_fn())
@@ -126,5 +137,6 @@ class SSSFDMobileNetV2FeatureExtractor(ssd_meta_arch.SSDFeatureExtractor):
               min_depth=self._min_depth,
               insert_1x1_conv=True,
               image_features=image_features)
+
 
     return feature_maps.values()
